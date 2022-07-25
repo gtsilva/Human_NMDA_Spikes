@@ -1,6 +1,7 @@
 # High synaptic threshold for NMDA spike generation in human layer 2/3 pyramidal neurons
 
-To run:
+## To run:
+
 	1. Compile mod files in the folder into a new "special". Alternatively, you can drag and drop the folder of interest into the mknrndll application icon in NEURON.
 	
 	2. Run Terminal and change to directory containing this file.
