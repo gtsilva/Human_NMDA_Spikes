@@ -1,0 +1,48 @@
+// detects spikes at soma with threshold = 0 mV
+// counts number of spikes and writes spike times into vector
+// calculates std of spike times and alpha of spike probability
+// also counts spont spikes, alternatively use window around
+// pp injection (+- 20 ms from t=1050) (in report_spikes() )
+//
+// 110206 by kampa@hifo.uzh.ch
+
+spike_threshold = 0
+main_spike_count = 0
+objref spx
+spx = new Vector()
+//xopen ("BACModel.hoc")
+/* advance()
+ * Called on every timestep -- replaces advance() in stdrun.hoc
+ */
+proc advance() { local last_v
+  last_v = soma.v
+  fadvance()
+  if (soma.v >= spike_threshold && last_v < spike_threshold) {
+    report_spike()
+  }
+}
+
+func round() {
+  if ($1>0) {
+    return int($1+0.5)
+  } else {
+    return int($1-0.5)
+  }
+}
+
+proc report_spike() {
+    //print "Spike at ", t
+    if (t>1000 && t<1050) {
+    spx.append(t)
+    main_spike_count = main_spike_count + 1  
+    t = tstop  }
+}
+
+proc report_alpha_sigma() {
+	// assumes maxsyn = 100, otherwise gives percentage of syn
+	pp_alpha = round(main_spike_count/ntrials*100)
+	if (pp_alpha>maxsyn) {pp_alpha = maxsyn}
+	if (spx.size<2) {pp_sigma = 100} else{
+	pp_sigma = (spx.stdev())}
+}
+

@@ -1,0 +1,367 @@
+/* --------------------------------------------------------------
+   init-human-simulation.hoc
+   NEURON code to simulate dendritic NMDA spike in a ball and stick model.
+
+   To run:
+   1. Compile mod files in the folder into a new "special".
+   2. Run Terminal and change to directory containing this file, e.g.:
+        cd Desktop/Dendrites Paper/NEURON Simulations/My Simulations/Ball_and_Stick_New Model
+   3. Execute the following:
+        mod/x86_64/special init-human-simulation.hoc-
+
+   Suraj Honnuraiah     Last edit: 17-Jul-22
+   -------------------------------------------------------------- */
+
+
+
+
+load_file("nrngui.hoc") 
+
+create soma, dend
+access soma
+objref stim1, syn
+
+tstop = 2000
+objref syn[500], psyn[500]
+
+stamp=0.1 // nA
+
+
+RM= 30000	// ohm cm2
+ra=150	// ohm cm
+
+c_m=1	//muF cm2
+
+gmax=0.0005 //uS (Minimum:0.5nS and Maximum 35nS)
+
+ntar=2
+
+diamdend=1
+
+lendend=300
+
+
+somadiam=90
+somalen=90
+
+a=150/lendend
+
+
+nsyn=1
+
+clus_factor=10
+
+spine_scale=2
+
+resting_vm=-65
+
+
+soma{
+	diam= somadiam
+	L= somalen
+	Ra=ra
+	cm=c_m
+	nseg=int((L/(0.1*lambda_f(100))+0.9)/2)*2+1
+	print "Soma nseg=", nseg
+
+	insert pas
+	e_pas=resting_vm
+	g_pas=1/RM
+}
+
+
+dend{
+	diam=diamdend
+	L=lendend
+	Ra=ra
+	//cm=c_m*spine_scale
+	cm=c_m
+	nseg=int((L/(0.1*lambda_f(100))+0.9)/2)*2+1
+	print "Dend nseg=", nseg	
+	insert pas
+	e_pas=resting_vm
+	//g_pas=spine_scale/RM
+	g_pas=2/RM
+
+}
+
+
+connect dend(0), soma(1)
+
+dend {	syn= new syn_g_duo(a)
+	syn.onset=400
+	syn.gmax=gmax
+	syn.ntar=ntar
+}
+
+/*
+objref vc
+
+soma {
+vc=new SEClamp(0.5)
+vc.dur1=100
+vc.amp1=v_init
+vc.dur2=800
+vc.amp2=Vhold
+vc.dur3=100
+vc.amp3=v_init
+}
+
+*/
+
+/*
+amp=-1
+dur=800
+
+soma stim1 = new IClamp(0.5)
+
+stim1.del = 200
+stim1.dur = dur
+stim1.amp = amp
+*/
+
+
+
+
+/*
+dend {
+	m=0
+	temploc=0
+	synloc=0
+	dsyn=1/nsyn
+	for i=1, nsyn-1{
+		m=m+1
+		temploc+=dsyn
+		syn[m]= new syn_g_duo(temploc)
+		syn[m].onset=400
+		syn[m].gmax=gmax
+		syn[m].ntar=ntar
+		print m, temploc
+	}
+		
+}
+
+*/
+
+
+
+/*
+m=0
+rintd=0
+lintd=0
+y=0
+n=0	
+numbranches=1
+b=int((nsyn/2))
+dsyn=1/(clus_factor*nsyn)
+for i=0, nsyn{
+	m=m+1
+	n=n+1
+	if (n>b) {
+		lintd+=dsyn
+		y=0.5-lintd
+	} else {
+		rintd+=dsyn
+		y=0.5+rintd
+	}
+	if (y<1 && y>0) {dend {syn[m] = new syn_g_duo(y)
+			syn[m].onset=400
+			syn[m].gmax=gmax
+			syn[m].ntar=ntar
+			}
+	}
+	print m, y
+}
+
+
+m=0
+rintd=0
+lintd=0
+y=0
+n=0	
+numbranches=1
+b=int((nsyn/2))
+dsyn=1/(clus_factor*nsyn)
+for i=0, nsyn{
+	m=m+1
+	n=n+1
+	if (n>b) {
+		lintd+=dsyn
+		y=0.5-lintd
+	} else {
+		rintd+=dsyn
+		y=0.5+rintd
+	}
+	if (y<1 && y>0) {dend {psyn[m] = new syn_g_duo(y)
+			psyn[m].onset=450
+			psyn[m].gmax=gmax
+			psyn[m].ntar=ntar
+			}
+	}
+	//print m, y
+}
+
+*/
+
+
+/*
+proc update_clamp() {
+	stim.amp=stamp
+}
+
+xpanel("Parameters")
+xvalue("Clamp Amplitude","stamp",1,"update_clamp()",1,1)
+xpanel()
+*/
+
+
+proc update_synwieght() {
+	dend{
+			syn.gmax= gmax
+	}
+}
+
+proc update_spinescale() {
+		dend{
+			cm=c_m*spine_scale
+			g_pas=spine_scale/RM
+		}	
+}
+
+/*
+proc update_ntar() {
+
+	dend{
+		for k=0, nsyn-1 {
+			syn[k].ntar= ntar
+		}
+	}
+}
+*/
+
+proc update_denddiam() {
+	dend{
+		diam=diamdend
+	}
+}
+
+
+proc update_CM() {
+
+		soma{
+			cm=c_m
+		}
+
+}
+
+proc update_somadiam() {
+	soma{
+		diam=somadiam
+	}
+}
+
+proc update_somalen() {
+	soma{
+		L=somalen
+	}
+}
+
+proc update_lendend() {
+	dend{
+		L=lendend
+		a=160/L
+		syn= new syn_g_duo(a)
+		print a
+		syn.onset=400
+		syn.gmax=gmax
+		syn.ntar=ntar
+	}
+	
+}
+
+
+
+
+proc update_RM() {
+	soma{
+		g_pas=1/RM
+	}
+	
+}
+
+proc update_RestingVm() {
+	soma{
+		e_pas=resting_vm
+	}
+	dend{
+		e_pas=resting_vm
+	}
+	
+}
+
+/*
+proc update_clamp() {
+	vc.amp2=Vhold
+}
+*/
+
+xpanel("Parameters")
+xvalue("gsyn","gmax",1,"update_synwieght()",1,1)
+//xvalue("ntar","ntar",1,"update_ntar()",1,1)
+xvalue("dendritic Diam","diamdend",1,"update_denddiam()",1,1)
+xvalue("somatic Diam","somadiam",1,"update_somadiam()",1,1)
+xvalue("dendritic Length","lendend",1,"update_lendend()",1,1)
+xvalue("somatic Length","somalen",1,"update_somalen()",1,1)
+xvalue("Rm","RM",1,"update_RM()",1,1)
+xvalue("Cm","c_m",1,"update_CM()",1,1)
+xvalue("SS","spine_scale",1,"update_spinescale()",1,1)
+xvalue("Resting_Vm","resting_vm",1,"update_RestingVm()",1,1)
+
+//xvalue("VHold","Vhold",1,"update_clamp()",1,1)
+
+xpanel()
+
+objref g[20]
+ngraph=0
+
+proc addgraph() { local ii  // define subroutine to add a new graph
+                // addgraph("variable", minvalue, maxvalue)
+    ngraph = ngraph+1
+    ii = ngraph-1
+    g[ii] = new Graph()
+    g[ii].size(0,tstop,$2,$3)
+    g[ii].xaxis()
+    g[ii].yaxis()
+    g[ii].addvar($s1,1,0)
+    g[ii].save_name("graphList[0].")
+    graphList[0].append(g[ii])
+}
+
+
+objref stfunc,shape
+shape=new Shape(0)
+shape.view(-792.112, -154.611, 1363.32, 1185.94, 5, 340, 300, 260)
+shape.show(0)
+proc make_shape_plot(){//DRAWS THE POINTS ON THE CELL
+	shape.point_mark_remove()
+
+	for i=0,nsyn{
+		shape.point_mark(syn[i], 2, 4, 4)	
+	}
+
+}///END SHAPE
+
+
+
+addgraph("soma.v(0.5)",-100,100)
+//addgraph("dend.v(0.5)",-100,100)
+//addgraph("syn[1].gnmda",-1,1)
+//addgraph("syn[1].inmda",-1,1)
+//addgraph("dend.v(0.5)",-100,100)
+//addgraph("soma.i_pas(0.5)",-100,100)
+//g[0].addexpr("soma.v(0)",2,1)
+//g[1].addexpr("syn[1].gampa",-1,1)
+//g[2].addexpr("syn[1].iampa",-1,1)
+
+make_shape_plot()
+nrncontrolmenu()

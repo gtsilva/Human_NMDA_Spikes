@@ -1,0 +1,333 @@
+/* --------------------------------------------------------------
+   init-human-simulation.hoc
+   NEURON code to simulate dendritic NMDA spike in a human neuron.
+
+   To run:
+   1. Compile mod files in the folder into a new "special".
+   2. Run Terminal and change to directory containing this file, e.g.:
+        cd Desktop/Dendrites Paper/NEURON Simulations/My Simulations/Human_New Simulations
+   3. Execute the following:
+        mod/x86_64/special init-human-simulation.hoc-
+
+   Suraj Honnuraiah     Last edit: 17-Jul-22
+   -------------------------------------------------------------- */
+
+strdef modelName, loadProgram, cellName, outputFile, cellPath, loadProgram
+objref trunc, secR, fi,vC, mbSec
+objref sh, axonal, dendritic, dendritic_only, initZone, stimSec
+objref trunc,mbSec, middleSec
+objref mydendrites
+
+load_file("stdgui.hoc")
+load_proc("nrnmainmenu")
+objref sh, st, axonal, dendritic, dendritic_only, stim1
+objref mydendrites,tuftS,temp,mytuft
+create soma
+access soma
+
+tstop = 1200
+steps_per_ms = 40
+dt = 0.025
+
+
+// --------------------------------------------------------------
+// passive & active membrane 
+// --------------------------------------------------------------
+
+ra        = 150
+global_ra = ra
+rm        = 10000
+c_m       = 1
+cm_myelin = 0.04
+g_pas_node = 0.02
+
+v_init    = -65
+celsius   = 37
+
+Ek = -90
+Ena = 60
+
+
+gna_dend = 00
+gna_node = 000			
+gna_soma = 00			
+
+gkv_axon = 000
+gkv_soma = 00
+gkv_dend = 0			
+
+gkd_axon=0.000			
+gkd_soma=0
+gkd_dend=0
+
+gca_s = 0
+gca_d = 0
+
+gkm_s = 0
+gkm_d = 0
+
+gkca = 0
+
+gca_soma = gca_s
+gca_dend = gca_d
+
+gkm_soma = gkm_s
+gkm_dend= gkm_d
+gkca_soma = gkca
+
+git_soma = 0.000
+git_dend = 0.0000
+
+
+// --------------------------------------------------------------
+// Axon geometry
+//
+// Similar to Mainen et al (Neuron, 1995)
+// --------------------------------------------------------------
+/*
+
+n_axon_seg = 5
+
+create soma,iseg,hill,myelin[2],node[2]
+
+proc create_axon() {
+
+  create iseg,hill,myelin[n_axon_seg],node[n_axon_seg]
+
+  soma {
+    equiv_diam = sqrt(area(.5)/(4*PI))
+
+    // area = equiv_diam^2*4*PI
+  }
+  if (numarg()) equiv_diam = $1
+
+  iseg {                // initial segment between hillock + myelin
+     L = 15
+     nseg = 5
+     diam = equiv_diam/10        // see Sloper and Powell 1982, Fig.71
+  }
+
+  hill {                
+    L = 10
+    nseg = 5
+    diam(0:1) = 4*iseg.diam:iseg.diam
+  }
+
+  // construct myelinated axon with nodes of ranvier
+
+  for i=0,n_axon_seg-1 {
+    myelin[i] {         // myelin element
+      nseg = 5
+      L = 100
+      diam = iseg.diam         
+    }
+    node[i] {           // nodes of Ranvier
+      nseg = 1
+      L = 1.0           
+      diam = iseg.diam*.75       // nodes are thinner than axon
+    }
+  }
+
+  soma connect hill(0), 0.5
+  hill connect iseg(0), 1
+  iseg connect myelin[0](0), 1
+  myelin[0] connect node[0](0), 1
+
+  for i=0,n_axon_seg-2  { 
+      node[i] connect myelin[i+1](0), 1 
+      myelin[i+1] connect node[i+1](0), 1
+  }
+}
+*/
+// --------------------------------------------------------------
+// Spines
+// --------------------------------------------------------------
+
+      // Based on the "Folding factor" described in
+      // Jack et al (1989), Major et al (1994)
+      // note, this assumes active channels are present in spines 
+      // at same density as dendrites
+
+spine_dens = 1
+      // just using a simple spine density model due to lack of data on some 
+      // neuron types.
+
+spine_area = 0.83 // um^2  -- Estimate from EM in cortex (K Harris)
+
+proc add_spines() { local a
+  
+  forsec $o1 {
+    a = 0
+    for(x) a = a + area(x)	// Loops over midpoint of each section
+				// finding summed area
+
+    F = (L*spine_area*spine_dens + a)/a // How much to scale up surface
+					// area to include spines
+
+    L = L * F^(2/3)	// Scales length by factor determined from area
+    for(x) diam(x) = diam(x) * F^(1/3)	// Scales diam by factor from area
+  }
+}
+
+// --------------------------------------------------------------
+// Initialise the cell’s electrical properties
+// --------------------------------------------------------------
+
+
+proc init_cell() {
+
+  // passive
+  forall {
+    insert pas
+    Ra = ra 
+    cm = c_m 
+    g_pas = 1/rm
+    e_pas = v_init
+  }
+
+  // exceptions along the axon
+  forsec "myelin" cm = cm_myelin
+  forsec "node" g_pas = g_pas_node
+
+  // na+ channels
+  forall insert na
+  forsec dendritic gbar_na = gna_dend
+  //forsec "myelin" gbar_na = gna_dend
+  //hill.gbar_na = gna_node
+  //iseg.gbar_na = gna_node
+  //forsec "node" gbar_na = gna_node
+
+  // kv delayed rectifier channels
+  //iseg { insert kv  gbar_kv = gkv_axon }
+  //hill { insert kv  gbar_kv = gkv_axon }
+  //soma { insert kv  gbar_kv = gkv_soma }
+
+  // dendritic channels
+  forsec dendritic {
+    insert km    gbar_km  = gkm_dend
+    insert kv    gbar_kv  = gkv_dend
+    insert kca   gbar_kca = gkca
+    insert ca    gbar_ca = gca_dend
+    insert cad
+    insert it    gbar_it = git_dend
+  }
+
+  soma {
+
+	insert na          gbar_na = gna_soma
+	insert kv          gbar_kv = gkv_soma
+	insert km          gbar_km = gkm_soma
+	insert kca         gbar_kca = gkca_soma
+	insert ca          gbar_ca = gca_soma
+	//insert it          gbar_it = git_soma
+
+  }
+
+ 
+  forall if(ismembrane("k_ion")) ek = Ek
+  forall if(ismembrane("na_ion")) {
+    ena = Ena
+    // seems to be necessary for 3d cells to shift Na kinetics -5 mV
+    vshift_na = -5
+  }
+  forall if(ismembrane("ca_ion")) {
+    eca = 140
+    ion_style("ca_ion",0,1,0,0,0)
+    vshift_ca = 0
+  }
+}
+
+proc load_3dcell() {
+
+// $s1 filename
+
+  aspiny = 0
+  forall delete_section()
+  xopen($s1)
+  access soma
+
+  dendritic = new SectionList()
+
+   // make sure no compartments exceed 50 uM length
+  forall {
+    diam_save = diam
+    n = L/50
+    nseg = n + 1
+    if (n3d() == 0) diam = diam_save
+    dendritic.append()
+  }    
+
+  dendritic_only = new SectionList()
+  forsec dendritic dendritic_only.append()
+  soma  dendritic_only.remove()
+
+  //create_axon()
+
+  init_cell()
+
+  if (!aspiny) add_spines(dendritic_only,spine_dens)
+}
+   load_3dcell("Cell1 Morphology_Idan.hoc")
+
+// --------------------------------------------------------------
+// setting stimuli
+// --------------------------------------------------------------
+
+
+// EPSP : f(t) = (1-exp(-t/chi1)) * exp(-t/chi2) 
+//       mit chi1 = 0.5 -2 ms und chi2 = 2-8 ms
+
+// ----------------------------------------------------------------
+// Run Routine
+// ----------------------------------------------------------------
+// --------------------------------------------------------------
+// replace init procedure to have sufficiently long prepulse
+// --------------------------------------------------------------
+
+/*
+amp=-1
+dur=800
+
+soma stim1 = new IClamp(0.5)
+
+stim1.del = 1020
+stim1.dur = dur
+stim1.amp = amp
+
+*/
+
+proc init() {local saveDt, i
+
+	init_esyn()
+	init_isyn()
+	init_pp()
+
+  finitialize(v_init)
+  fcurrent()
+  saveDt = dt
+  dt = 10
+  for i=0,99 fadvance()
+  dt = saveDt
+}
+proc DoIt() {local i, j
+
+  init()
+  for i=0,999 {
+    for j=0,0.1/dt-1 fadvance()
+  }
+}
+
+
+
+
+// --------------------------------------------------------------
+// finally opening all graphs and panels
+// --------------------------------------------------------------
+// open pulsepacket routine
+xopen("pp_clus_synback_glu.hoc")
+init_pp()
+make_synback()
+init_esyn()
+init_isyn()
+make_shape_plot()
+xopen("menu.ses")

@@ -1,0 +1,85 @@
+{load_file("nrngui.hoc")}
+objectvar save_window_, rvp_
+objectvar scene_vector_[4]
+objectvar ocbox_, ocbox_list_, scene_, scene_list_
+{ocbox_list_ = new List()  scene_list_ = new List()}
+{pwman_place(0,0,0)}
+{
+save_window_ = new Graph(0)
+save_window_.size(1000,1200,-90,50)
+scene_vector_[2] = save_window_
+{save_window_.view(1000, -90, 50, 140, 435, 30, 300, 240)}
+graphList[0].append(save_window_)
+save_window_.save_name("graphList[0].")
+save_window_.addexpr("v(.5)", 1, 1, 1, 0, 2)
+//save_window_.addexpr("a1_1222.v(.0)", 2, 1, 1, 0, 2)
+//save_window_.addexpr("a3_1122.v(.0)", 3, 1, 1, 0, 2)
+//save_window_.addexpr("a2_1211.v(.0)", 4, 1, 1, 0, 2)
+//save_window_.addexpr("a1_1111.v(.0)", 5, 1, 1, 0, 2)
+//save_window_.xaxis(1000,1100,-100,5,0,0,1)
+save_window_.yaxis(-80,40,1000,3,0,0,1)
+save_window_.label(0.8, 0.8, "Soma", 2, 1, 0, 0, 1)
+}
+{
+xpanel("RunControl", 0)
+xbutton("Init & Run","run()")
+xbutton("Stop","stoprun=1")
+xbutton("Single Step","steprun()")
+t = 1000
+xvalue("t","t", 2 )
+tstop = 2000
+xvalue("Tstop","tstop", 1,"tstop_changed()", 0, 1 )
+dt = 0.1
+xvalue("dt","dt", 1,"setdt()", 0, 1 )
+steps_per_ms = 10
+xvalue("Points plotted/ms","steps_per_ms", 1,"setdt()", 0, 1 )
+xpanel(142,120)
+}
+{
+save_window_ = new Graph(0)
+save_window_.size(1000,1050,-90,50)
+scene_vector_[3] = save_window_
+{save_window_.view(1000, -90, 50, 140, 423, 305, 330, 239)}
+graphList[0].append(save_window_)
+save_window_.save_name("graphList[0].")
+save_window_.addexpr("a1_1111.v(.0)", 2, 1, 1, 0, 2)
+save_window_.label(0.7, 0.7, "Dend_1", 2, 1, 0, 0, 2)
+}
+
+{
+save_window_ = new Graph(0)
+save_window_.size(1000,1050,-90,50)
+scene_vector_[3] = save_window_
+{save_window_.view(1000, -90, 50, 140, 423, 305, 330, 239)}
+graphList[0].append(save_window_)
+save_window_.save_name("graphList[0].")
+save_window_.addexpr("syn.inmda", 3, 1, 1, 0, 2)
+save_window_.label(0.7, 0.7, "INMDA", 2, 1, 0, 0, 3)
+}
+
+{
+save_window_ = new Graph(0)
+save_window_.size(1000,1050,-90,50)
+scene_vector_[3] = save_window_
+{save_window_.view(1000, -90, 50, 140, 423, 305, 330, 239)}
+graphList[0].append(save_window_)
+save_window_.save_name("graphList[0].")
+save_window_.addexpr("syn. iampa", 4, 1, 1, 0, 2)
+save_window_.label(0.7, 0.7, "IAMPA", 2, 1, 0, 0, 4)
+}
+
+{
+save_window_ = new Graph(0)
+save_window_.size(1000,1050,-90,50)
+scene_vector_[3] = save_window_
+{save_window_.view(1000, -90, 50, 140, 423, 305, 330, 239)}
+graphList[0].append(save_window_)
+save_window_.save_name("graphList[0].")
+save_window_.addexpr("a1_1111.ica", 5, 1, 1, 0, 2)
+//save_window_.label(0.7, 0.7, "ICa", 2, 1, 0, 0, 5)
+}
+
+
+
+objectvar scene_vector_[1]
+{doNotify()}

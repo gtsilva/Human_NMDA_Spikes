@@ -1,0 +1,170 @@
+// create control functions for PP simulation
+// needs BACModel to run first
+
+
+xpanel("Control")
+  xvalue("GmaxS","syngmax",1,"c_gmax()")
+  xvalue("GmaxE","egmax",1,"c_gmax()")
+  xvalue("GmaxI","igmax",1,"c_gmax()")  xvalue("numS","nsyn",1,"init_pp()")
+xpanel()
+
+proc c_gmax(){
+	for i=0,nsyn-1{
+		syn[i].gmax=syngmax
+	}
+	for i=0,maxesyn-1{
+		esyn[i].gmax=egmax
+	}
+	for i=0,maxisyn-1{
+		isyn[i].gmax=igmax
+	}
+}
+
+
+//LOCAL SYNAPSES
+
+proc loclocation(){
+	objref synS[numS]
+	objref synE[numE]
+	objref synI[numI]
+	dendnumE=0
+	dendnumS=0
+	dendnum=0
+	dendnum1=0
+	strdef st
+	count=0
+	groupc=0
+	groupd=0	
+	st=""
+
+	found=0
+	tuftE = new SectionList()	
+	access apic[DendE]
+	temp = new SectionList()
+	temp.subtree()
+	distance()
+	forsec temp {
+		if ( (distance(0.5)<subtuftdistE) && ( distance(0.5)>subtuftproxE) ){
+			tuftE.append()
+		}
+	}
+	numbranchesE=0
+	forsec tuftE{
+		numbranchesE=numbranchesE+1
+	}
+
+	tuftS = new SectionList()
+	temp = new SectionList()	
+	access apic[DendS]
+	if ((generation==0)||(generation>=7)){
+		temp.subtree()
+		distance()
+		forsec temp {
+			if ( (distance(0.5)<subtuftdistS) && ( distance(0.5)>subtuftproxS) ){
+				tuftS.append()
+			}
+		}
+	}else{
+		tuftS=tuft1[generation-1]
+	}//generation
+	numbranchesS=0
+	forsec tuftS{
+		numbranchesS=numbranchesS+1
+	}
+	rdel.uniform(0, 1000)
+	r.uniform(0, numbranchesS-1)
+	for i=0,numS-1{
+		loc=int(r.repick())
+		count=0
+		forsec tuftS{
+			if (count==loc){
+				sprint(st,"%s",secname())
+				stfunc.right(st,5)
+				stfunc.left(st,stfunc.len(st)-1)
+				sscanf(st,"%d",&dendnum)
+
+			}//if
+			count=count+1
+		}//forsec
+		access apic[dendnum]
+
+		rseg.uniform(.1,.9)
+		if (nmdaampa==1){
+			synS[i]=new glutamate(rseg.repick)
+		  	synS[i].ntar=nmda2ampa
+		}else{
+	      	synS[i]=new ampa(rseg.repick)
+		}
+		
+		synS[i].gmax=gmaxS
+		synS[i].del=50
+		synS[i].Nspike=nspike
+		synS[i].Tspike=20
+	}//numS
+	r.uniform(0, numbranchesE-1)
+	for i=0,numE-1{
+		loc=int(r.repick())
+		count=0
+		forsec tuftE{
+			if (count==loc){
+				sprint(st,"%s",secname())
+				stfunc.right(st,5)
+				stfunc.left(st,stfunc.len(st)-1)
+				sscanf(st,"%d",&dendnum)
+			}//if
+			count=count+1
+		}//forsec
+		access apic[dendnum]
+		rseg.uniform(.1,.9)
+		if (nmdaampa==1){
+			synE[i]=new glutamate(rseg.repick)
+		  	synE[i].ntar=1
+		}else{
+	      	synE[i]=new ampa(rseg.repick)
+		}
+		
+		synE[i].gmax=gmaxE
+		synE[i].del=rdel.repick()
+		synE[i].Nspike=1
+		synE[i].Tspike=20
+	}//numE
+	for i=0,numI-1{
+		loc=int(r.repick())
+		count=0
+		forsec tuftE{
+			if (count==loc){
+				sprint(st,"%s",secname())
+				stfunc.right(st,5)
+				stfunc.left(st,stfunc.len(st)-1)
+				sscanf(st,"%d",&dendnum)
+			}//if
+			count=count+1
+		}//forsec
+		access apic[dendnum]
+		rseg.uniform(.1,.9)
+		synI[i]=new AlphaSynapse(rseg.repick)
+		synI[i].gmax=gmaxI/1000
+		synI[i].onset=rdel.repick()
+		synI[i].tau=3
+		synI[i].e=-70
+	}//numE	
+	make_shape_plot()
+}//LOCAL SYNAPSES
+
+loclocation()
+c_gmax()
+load_file("my_apic.ses")//the cell
+access soma
+
+vshift_sca=-10
+forsec apical vshift_hh3=-10
+
+tau1_glutamate=70
+tau2_glutamate=3
+gama_glutamate=0.08
+n_glutamate=0.3
+tau_ampa_glutamate=1
+tau_ampa_ampa=1
+global_ra = 80
+celsius = 34
+

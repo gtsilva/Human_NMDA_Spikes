@@ -1,0 +1,603 @@
+strdef modelName, loadProgram, cellName, outputFile, cellPath, loadProgram
+objref trunc, secR, fi,vC, mbSec
+objref sh, axonal, dendritic, dendritic_only, initZone, stimSec
+objref trunc,mbSec, middleSec
+objref mydendrites
+
+load_file("stdgui.hoc")
+load_proc("nrnmainmenu")
+objref sh, st, axonal, dendritic, dendritic_only
+objref mydendrites,tuftS,temp,mytuft, mbSec
+
+
+
+
+objref ampa, nmda, gaba, s, datafile
+objref ncl, weight
+objref apc
+strdef name
+create soma
+access soma
+
+tstop = 500
+steps_per_ms = 40
+dt = 0.025
+
+
+// --------------------------------------------------------------
+// passive & active membrane
+// --------------------------------------------------------------
+
+ra        = 150
+global_ra = ra
+rm        = 10000
+c_m       = 1
+cm_myelin = 0.04
+g_pas_node = 0.02
+
+v_init    = -75
+celsius   = 37
+
+Ek = -90
+Ena = 60
+
+
+gna_dend = 0			//gna_dend=20
+gna_node = 0		//gna_node=30000
+gna_soma = 0
+
+gkv_axon = 0			//gkv_axon=2000
+gkv_soma = 0
+gkv_dend = 0			//gkv_dend = 20
+gkd_axon=0.000			//gkd_axon=0.006
+gkd_soma=0
+gkd_dend=0
+
+gca_s = 0
+gca_d = 0
+
+gkm_soma = 0
+gkm_dend = 0
+gka_soma=0
+gkca = 0
+
+gca_soma = gca_s
+gca_dend=gca_d
+gkca_soma = gkca
+
+git_soma = 0.0000
+git_dend = 0.0003		//git_dend = 0.0008 for bursting and optimal critical frequency
+
+
+
+/*
+gna_dend = 0		//gna_dend=20
+gna_node = 0		//gna_node=30000
+gna_soma = 0
+
+gkv_axon = 0			//gkv_axon=2000
+gkv_soma = 0
+gkv_dend = 0		//gkv_dend = 20
+gkd_axon=0.000			//gkd_axon=0.006
+gkd_soma=0
+gkd_dend=0
+
+gca_s = 0
+gca_d = 0
+
+gkm_soma = 0
+gkm_dend = 0
+gka_soma=0
+gkca = 0
+
+gca_soma = gca_s
+gca_dend=gca_d
+gkca_soma = gkca
+
+git_soma = 0
+git_dend = 0
+
+*/
+
+
+
+
+// --------------------------------------------------------------
+// Axon geometry
+//
+// Similar to Mainen et al (Neuron, 1995)
+// --------------------------------------------------------------
+
+n_axon_seg = 5
+
+create soma,iseg,hill,myelin[2],node[2]
+
+proc create_axon() {
+
+  create iseg,hill,myelin[n_axon_seg],node[n_axon_seg]
+
+  soma {
+    equiv_diam = sqrt(area(.5)/(4*PI))
+
+    // area = equiv_diam^2*4*PI
+  }
+  if (numarg()) equiv_diam = $1
+
+  iseg {                // initial segment between hillock + myelin
+     L = 15
+     nseg = 5
+     diam = equiv_diam/10        // see Sloper and Powell 1982, Fig.71
+  }
+
+  hill {
+    L = 10
+    nseg = 5
+    diam(0:1) = 4*iseg.diam:iseg.diam
+  }
+
+  // construct myelinated axon with nodes of ranvier
+
+  for i=0,n_axon_seg-1 {
+    myelin[i] {         // myelin element
+      nseg = 5
+      L = 100
+      diam = iseg.diam
+    }
+    node[i] {           // nodes of Ranvier
+      nseg = 1
+      L = 1.0
+      diam = iseg.diam*.75       // nodes are thinner than axon
+    }
+  }
+
+  soma connect hill(0), 0.5
+  hill connect iseg(0), 1
+  iseg connect myelin[0](0), 1
+  myelin[0] connect node[0](0), 1
+
+  for i=0,n_axon_seg-2  {
+      node[i] connect myelin[i+1](0), 1
+      myelin[i+1] connect node[i+1](0), 1
+  }
+}
+
+// --------------------------------------------------------------
+// Spines
+// --------------------------------------------------------------
+
+      // Based on the "Folding factor" described in
+      // Jack et al (1989), Major et al (1994)
+      // note, this assumes active channels are present in spines
+      // at same density as dendrites
+
+spine_dens = 1
+      // just using a simple spine density model due to lack of data on some
+      // neuron types.
+
+spine_area = 0.83 // um^2  -- K Harris
+
+proc add_spines() { local a
+  forsec $o1 {
+    a =0
+    for(x) a=a+area(x)
+
+    F = (L*spine_area*spine_dens + a)/a
+
+    L = L * F^(2/3)
+    for(x) diam(x) = diam(x) * F^(1/3)
+  }
+}
+
+
+
+proc init_cell() {
+
+  // passive
+  forall {
+    insert pas
+    Ra = ra
+    cm = c_m
+    g_pas = 1/rm
+    e_pas = v_init
+  }
+
+  // exceptions along the axon
+  forsec "myelin" cm = cm_myelin
+  forsec "node" g_pas = g_pas_node
+
+  // na+ channels
+  forall insert na
+  forsec dendritic gbar_na = gna_dend
+  forsec "myelin" gbar_na = gna_dend
+  hill.gbar_na = gna_node
+  iseg.gbar_na = gna_node
+  forsec "node" gbar_na = gna_node
+
+  // kv delayed rectifier channels
+  iseg {
+	insert kv  gbar_kv = gkv_axon
+	insert kd gkdbar_kd=gkd_axon
+  }
+
+  hill {
+	insert kv  gbar_kv = gkv_axon
+	insert kd gkdbar_kd=gkd_axon
+  }
+
+
+  // dendritic channels
+  forsec dendritic {
+    insert kv    gbar_kv = gkv_dend
+    insert km    gbar_km  = gkm_dend
+    insert kd	 gkdbar_kd=gkd_dend
+    insert kca   gbar_kca = gkca
+    insert ca    gbar_ca = gca_soma
+    insert cad
+    insert it2    gcabar_it2 = git_dend
+  }
+
+  soma {
+	insert na          gbar_na = gna_soma
+	insert kv          gbar_kv = gkv_soma
+	insert km          gbar_km = gkm_soma
+	insert kap	   gkabar_kap=gka_soma
+	insert kd	   gkdbar_kd=gkd_soma
+	insert kca         gbar_kca = gkca_soma
+	insert ca          gbar_ca = gca_soma
+	insert it          gbar_it = git_soma
+  }
+
+
+  forall if(ismembrane("k_ion")) ek = Ek
+  forall if(ismembrane("na_ion")) {
+    ena = Ena
+    // seems to be necessary for 3d cells to shift Na kinetics -5 mV
+    vshift_na = -5
+  }
+  forall if(ismembrane("ca_ion")) {
+    eca = 140
+    ion_style("ca_ion",0,1,0,0,0)
+    vshift_ca = 0
+  }
+}
+
+proc load_3dcell() {
+
+// $s1 filename
+
+  aspiny = 0
+  forall delete_section()
+  xopen($s1)
+  access soma
+
+  dendritic = new SectionList()
+
+   // make sure no compartments exceed 50 uM length
+  forall {
+    diam_save = diam
+    n = L/50
+    nseg = n + 1
+    if (n3d() == 0) diam = diam_save
+    dendritic.append()
+  }
+
+  dendritic_only = new SectionList()
+  forsec dendritic dendritic_only.append()
+  soma  dendritic_only.remove()
+
+  create_axon()
+
+  init_cell()
+
+  if (!aspiny) add_spines(dendritic_only,spine_dens)
+}
+   load_3dcell("Cell2_Human_GTS.hoc")
+
+objectvar stim,stim2,stim3,stim4,stim5,stim6,stim7,stim8,stim9,stim10
+
+tsyn=100
+intrvl=50
+nmbr=10
+noisevar=0.0
+
+nsyn =100
+clus_factor=6
+gmax=0.1
+tinh=25
+syn_loc=0.99
+ntar=0.2
+
+
+objref       pploc[70]
+
+for i=1,69 { pploc[i]= new SectionList ()}
+
+
+
+dend[37]	pploc[1].append()
+dend[48]	pploc[2].append()
+dend[49]	pploc[3].append()
+dend[50]	pploc[4].append()
+dend[52]	pploc[5].append()
+
+
+objref syn[nsyn]
+	m=0
+	rintd=0
+	lintd=0
+	y=0
+	n=0
+	numbranches=1
+	b=int((nsyn/2))
+	dsyn=dsyn=1/(clus_factor*nsyn)
+	for i=1, nsyn{
+		m=m+1
+		n=n+1
+		if (n>b) {
+			lintd+=dsyn
+			y=0.5-lintd
+		} else {
+			rintd+=dsyn
+			y=0.5+rintd
+		}
+
+
+		if (y<1 && y>0) {forsec pploc [2]{ syn[m-1] = new syn_g_duo(y)
+				syn[m-1].onset=100
+				syn[m-1].gmax= gmax
+				syn[m-1].ntar=ntar
+
+				}
+		}
+
+	print m, y
+	}// synaptic distribution
+
+
+
+
+/*
+amp=0.7
+dur=300
+soma stim = new IClamp(0.5)
+
+stim.del = 100
+stim.dur = dur
+stim.amp = amp
+objref apc
+proc update_apc(){
+     soma{
+           apc=new APCount(0.5)
+           apc.thresh=0
+     }
+}
+
+proc update_current(){
+
+     stim.amp = amp
+
+}
+
+*/
+
+proc update_gaba(){
+
+	for z=1, nsyn{
+		u=u+1
+		forsec pploc[1] {syn[u].gmax=winh}
+	}
+
+}
+
+proc update_gabatau(){
+
+     gaba.tau=tinh
+
+}
+
+proc update_synlocation(){
+
+     syn_loc=loc
+
+}
+
+proc update_gna_node(){
+
+	forsec "node" {gbar_na = gna_node}
+	hill.gbar_na = gna_node
+  	iseg.gbar_na = gna_node
+
+}
+
+proc update_gna_soma(){
+
+	soma{
+		gbar_na = gna_soma
+	}
+
+}
+
+proc update_gna_dend(){
+
+	forsec dendritic{
+		gbar_na = gna_dend
+	}
+
+}
+
+
+proc update_gkv_axon(){
+
+	iseg{gbar_kv = gkv_axon}
+	hill{gbar_kv = gkv_axon}
+
+}
+
+proc update_gkd_axon(){
+
+	iseg{gkdbar_kd=gkd_axon}
+	hill{gkdbar_kd=gkd_axon}
+
+}
+
+proc update_gkv_soma(){
+
+	soma{
+		gbar_kv = gkv_soma
+	}
+
+}
+
+proc update_gkm_soma(){
+
+	soma{
+		gbar_km = gkm_soma
+	}
+
+}
+
+proc update_gka_soma(){
+
+	soma{
+		gkabar_kap = gka_soma
+	}
+
+}
+
+
+proc update_gkv_dend(){
+
+	forsec dendritic{
+		gbar_kv = gkv_dend
+	}
+
+}
+
+
+
+
+proc update_gca_soma(){
+
+	soma{
+		gbar_ca = gca_soma
+	}
+
+}
+
+proc update_gkca_soma(){
+
+	soma{
+		gbar_kca = gkca_soma
+	}
+
+}
+
+
+/********************************************************************/
+
+proc update_init(){
+	finitialize(v_init)
+	fcurrent()
+	for (x) {
+		e_pas(x)=v(x)
+		e_pas(x)=e_pas(x)+(ina(x)+ik(x)+i_hd(x))/g_pas(x)
+	}
+
+}
+
+
+/*
+proc Stimulus_Frequency() {
+	update_apc()
+	b=0
+	for(i=0;i<=6;i+=1) {
+		gka_soma=0.5*i
+		update_gka_soma()
+		print"gka_soma:", gka_soma
+		b=b+1
+		file_index+=b
+		sprint(name,"%.1f",file_index)
+		wopen(name)
+			for(k=0;k<=35;k+=1){
+				amp=0.05*k
+				update_current()
+				finitialize()
+				while (t<tstop){
+					fadvance ()
+				}
+				print"",amp,apc.n
+				fprint("%f\t%f\n",amp,apc.n)
+			}
+	}
+}
+
+
+Stimulus_Frequency()
+
+*/
+
+
+objectvar g[20]         // max 20 graphs
+ngraph = 0
+
+proc addgraph() { local ii  // define subroutine to add a new graph
+                // addgraph("variable", minvalue, maxvalue)
+    ngraph = ngraph+1
+    ii = ngraph-1
+    g[ii] = new Graph()
+    g[ii].size(0,tstop,$2,$3)
+    g[ii].xaxis()
+    g[ii].yaxis()
+    g[ii].addvar($s1,1,0)
+    g[ii].save_name("graphList[0].")
+    graphList[0].append(g[ii])
+}
+
+if(ismenu==0) {
+  nrnmainmenu()         // create main menu
+  nrncontrolmenu()      // crate control menu
+  ismenu=1
+}
+
+/*
+xpanel("Parameters")
+xvalue("Synaptic Strength","winh",1,"update_gaba()",1,1)
+//xvalue("Axon_GNa","gna_node",1,"update_gna_node()",1,1)
+//xvalue("Soma_GNa","gna_soma",1,"update_gna_soma()",1,1)
+//xvalue("Dend_GNa","gna_dend",1,"update_gna_dend()",1,1)
+
+//xvalue("Axon_GKv","gkv_axon",1,"update_gkv_axon()",1,1)
+xvalue("Axon_GKD","gkd_axon",1,"update_gkd_axon()",1,1)
+xvalue("Soma_GKm","gkm_soma",1,"update_gkm_soma()",1,1)
+xvalue("Soma_GKa","gka_soma",1,"update_gka_soma()",1,1)
+
+
+xpanel()
+
+*/
+
+objref stfunc,shape
+shape=new Shape(0)
+shape.view(-792.112, -154.611, 1363.32, 1185.94, 5, 340, 300, 260)
+shape.show(0)
+proc make_shape_plot(){//DRAWS THE POINTS ON THE CELL
+	shape.point_mark_remove()
+
+	for i=0,nsyn-1{
+		//shape.point_mark(esyn[i], 5, 4, 5)
+	}
+	for i=0,nsyn-1{
+		//shape.point_mark(isyn[i], 3, 4, 5)
+	}
+	for i=0,nsyn-1{
+		shape.point_mark(syn[i], 2, 4, 4)
+	}
+	access soma
+}///END SHAPE
+
+addgraph("soma.v(0.5)",-75,90)
+addgraph("apic[48].v(0.5)",-75,90)
+//addgraph("dend[50].v(0.5)",-75,90)
+//addgraph("apic[25].v(0.5)",-75,90)
+
+make_shape_plot()

@@ -1,0 +1,65 @@
+// runs the BACFiring model with different starting points of alpha 
+// and sigma or nsyn and sigmasyn similar to Diesmann 1998
+// nsyn ranges from 55 to 100, no APs below 50
+// sigmayn ranges from 0 to 10
+// repeated 100 times 
+// with different sets of activated synapses in every run
+// for quiet syn background use igmax = 0 and egmax = 0
+
+//egmax = 0.02
+//igmax = 0.06
+xopen("getspx.hoc")
+
+objref vec_alpha,vec_sigma,datafile,vec_nsyn,vec_sigmasyn
+ntrials = 100
+strdef name
+
+proc run_pp_matrix() {
+
+for (acount=100; acount>25; acount=acount-10) {
+for (scount=0; scount<5.5; scount=scount+1) {
+	nsyn = acount
+	sigmasyn = scount
+	init_pp()
+	pp_alpha = nsyn
+	pp_sigma = sigmasyn
+	run_pp_exp()
+}}
+printf("Matrix done \n")
+}
+
+
+proc run_pp_exp() {
+	vec_alpha = new Vector()
+	vec_sigma = new Vector()
+	vec_nsyn = new Vector()
+	vec_sigmasyn = new Vector()
+
+	print pp_alpha,pp_sigma
+	nsyn = pp_alpha
+	sigmasyn = pp_sigma
+	vec_nsyn.append(nsyn)
+	vec_sigmasyn.append(sigmasyn)
+	spx = new Vector()
+	main_spike_count = 0
+	for nt = 1,ntrials {
+		run()	
+	}
+	report_alpha_sigma()
+	vec_alpha.append(pp_alpha)
+	vec_sigma.append(pp_sigma)  
+
+	print pp_alpha,pp_sigma
+	datafile = new File()
+	sprint(name,"%.1f%s%.1f",nsyn,"_",sigmasyn)
+	datafile.wopen(name)
+	vec_nsyn.printf(datafile,"%g\t")
+	vec_sigmasyn.printf(datafile,"%g\t")
+	vec_alpha.printf(datafile,"%g\t")
+	vec_sigma.printf(datafile,"%g\t")
+	datafile.close()
+
+	printf("Writing done \n")
+
+}
+

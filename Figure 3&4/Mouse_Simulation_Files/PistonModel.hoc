@@ -1,0 +1,181 @@
+load_file("nrngui.hoc") 
+
+create soma, dend
+access soma
+
+stamp=0.1 // nA
+rm=25000	// ohm cm2
+ra=150	// ohm cm
+c_m=1	//muF cm2
+nmda2ampa = 0.2
+git_dend=0.0005
+
+syngmax = 10
+diamdend=1
+
+
+
+soma{
+	diam=50
+	L=50
+	Ra=ra
+	cm=1
+	nseg=int((L/(0.1*lambda_f(100))+0.9)/2)*2+1
+	print "Soma nseg=", nseg
+
+	insert pas
+	e_pas=-65
+	g_pas=1/rm
+}
+
+dend{
+	diam=diamdend
+	L=1000
+	Ra=ra
+	cm=2
+	nseg=int((L/(0.1*lambda_f(100))+0.9)/2)*2+1
+	print "Dend nseg=", nseg
+
+	insert pas
+	e_pas=-65
+	g_pas=2/rm
+    	insert it2    
+	gcabar_it2 = git_dend
+	
+}
+
+connect dend(0), soma(1)
+
+/*
+Vhold=v_init
+objref vc
+
+vc=new SEClamp(0.5)
+vc.dur1=100
+vc.amp1=v_init
+vc.dur2=100
+vc.amp2=Vhold
+vc.dur3=100
+vc.amp3=v_init
+
+*/
+
+
+tstop = 1000
+objref ncl, weight, datafile, syn1, syn2, syn3, syn4, syn5, syn6, syn7, syn8, syn9, syn10
+strdef name
+
+dend{
+	syn1= new glutamate (0.2)
+	syn1.del=200
+	syn1.gmax=syngmax
+	syn1.ntar=nmda2ampa
+
+	syn2= new glutamate (0.21)
+	syn2.del=200
+	syn2.gmax=syngmax
+	syn2.ntar=nmda2ampa
+
+	syn3= new glutamate (0.22)
+	syn3.del=200
+	syn3.gmax=syngmax
+	syn3.ntar=nmda2ampa
+
+	syn4= new glutamate (0.23)
+	syn4.del=200
+	syn4.gmax=syngmax
+	syn4.ntar=nmda2ampa
+
+	syn5= new glutamate (0.24)
+	syn5.del=200
+	syn5.gmax=syngmax
+	syn5.ntar=nmda2ampa
+
+	syn6= new glutamate (0.25)
+	syn6.del=200
+	syn6.gmax=syngmax
+	syn6.ntar=nmda2ampa
+
+	syn7= new glutamate (0.26)
+	syn7.del=200
+	syn7.gmax=syngmax
+	syn7.ntar=nmda2ampa
+
+	syn8= new glutamate (0.27)
+	syn8.del=200
+	syn8.gmax=syngmax
+	syn8.ntar=nmda2ampa
+
+	syn9= new glutamate (0.28)
+	syn9.del=200
+	syn9.gmax=syngmax
+	syn9.ntar=nmda2ampa
+
+	syn10= new glutamate (0.29)
+	syn10.del=200
+	syn10.gmax=syngmax
+	syn10.ntar=nmda2ampa
+}
+
+/*
+proc update_clamp() {
+	stim.amp=stamp
+}
+
+xpanel("Parameters")
+xvalue("Clamp Amplitude","stamp",1,"update_clamp()",1,1)
+xpanel()
+*/
+
+proc update_synwieght() {
+
+	syn1.gmax=syngmax
+	syn2.gmax=syngmax
+	syn3.gmax=syngmax
+	syn4.gmax=syngmax
+	syn5.gmax=syngmax
+	syn6.gmax=syngmax
+	syn7.gmax=syngmax
+	syn8.gmax=syngmax
+	syn9.gmax=syngmax
+	syn10.gmax=syngmax
+
+}
+
+proc update_denddiam() {
+	dend{
+		diam=diamdend
+	}
+}
+
+
+xpanel("Parameters")
+xvalue("synaptic Weight","syngmax",1,"update_synwieght()",1,1)
+xvalue("dendritic Diam","diamdend",1,"update_denddiam()",1,1)
+xpanel()
+
+objref g[20]
+ngraph=0
+
+proc addgraph() { local ii  // define subroutine to add a new graph
+                // addgraph("variable", minvalue, maxvalue)
+    ngraph = ngraph+1
+    ii = ngraph-1
+    g[ii] = new Graph()
+    g[ii].size(0,tstop,$2,$3)
+    g[ii].xaxis()
+    g[ii].yaxis()
+    g[ii].addvar($s1,1,0)
+    g[ii].save_name("graphList[0].")
+    graphList[0].append(g[ii])
+}
+
+addgraph("soma.v(0)",-100,100)
+//addgraph("soma.i_pas(0.5)",-100,100)
+//addgraph("soma.i_pas(0.5)",-100,100)
+//g[0].addexpr("soma.v(0)",2,1)
+//g[2].addexpr("soma.i_cap(0)",2,1)
+
+
+
+nrncontrolmenu()

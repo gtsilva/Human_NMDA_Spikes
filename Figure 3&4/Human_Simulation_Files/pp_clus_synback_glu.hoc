@@ -1,0 +1,338 @@
+/* distribute pulse packet inputs across dendrite */
+
+// 
+// insert synaptic background activity conductance
+//
+// 10,000 synapses excitatory 0.1 Hz rate
+// 1,000 synapses inhibitory 1 Hz rate
+// inserted as 100 synapses each:
+// E 100 synapses 10 Hz (1 spike in 100 ms)
+// I 100 synapses 10 Hz (1 spike in 100 ms)
+//
+// cluster these synapses on apical dendrite section 640 to 740
+//
+// spike times drawn from uniform distribution
+// Poisson trains were too complicated
+// could not figure out how to insert multiple spike times into 
+// synapses
+// clustered pulsepacket is injected into dendritic section 
+// dendA1_00000000000010 from (0.0) to (1.0) (=200 um)
+//
+// 110209 hs@ini.phys.ethz.ch
+
+
+	printf("clus synback \n")
+
+N = 40				//Number of Synapses	
+nsyn=N
+clus_factor=10
+sigmasyn = 0 // in ms
+maxsyn = 100
+ii=0
+forsec dendritic_only {ii=ii+1}
+maxesyn = ii
+maxisyn = ii
+maxtime = 111
+gmax =0.00025			//Unit of AMPA Synaptic conductance in uS: 250 pS multiple syn simulations
+//gmax=0.0005 			//uS (Minimum:0.5nS and Maximum 35nS)
+egmax = 0.000			//background excitatory synaptic conductance
+igmax = 0.000			//ibackground inhibitory synaptic conductance
+nmda2ampa = 2
+
+objref 	r,p,er,ep,syn[nsyn],seedy,ns, psyn[nsyn]
+//objref       pploc1, pploc2,pploc3,pploc4,pploc5,pploc6
+objref       pploc[300]
+pploc= new Vector()
+objref esyn[maxesyn], isyn[maxisyn]
+ns= new Random()
+seedy = new Random()
+dummy = seedy.uniform(0,1000)
+ns =new Random()
+r = new Random(7) // reproducible with seed
+p = new Random(13)
+// but not sure if repick does replace as well
+objref randsec,randsecdend,randsecsyn
+er = new Random()
+dummy = er.discunif(0,maxesyn-1)
+ep = new Random()
+dummy = ep.discunif(0, maxtime)
+
+for i=1,299 { pploc[i]= new SectionList ()}
+
+
+
+/*
+  apic[1] pploc[1].append()                
+  apic[2] pploc[2].append()             
+  apic[3]  pploc[3].append()             
+  apic[4] pploc[4].append()         
+  apic[5]    pploc[5].append()         
+  apic[6]   pploc[6].append()           
+  apic[7]   pploc[7].append()          
+  apic[8]   pploc[8].append()           
+  apic[9]   pploc[9].append()             
+  apic[10]  pploc[10].append()             
+  apic[11] pploc[11].append()            
+  apic[12]   pploc[12].append()          
+  apic[13]   pploc[13].append()            
+  apic[14]    pploc[14].append()         
+  apic[15]     pploc[15].append()         
+  apic[16]  pploc[16].append()          
+  apic[17]   pploc[17].append()          
+  apic[18]         pploc[18].append()       
+  apic[19]     pploc[19].append()           
+  apic[20]    pploc[20].append()          
+  apic[21] pploc[21].append()            
+  apic[22]    pploc[22].append()         
+  apic[23]     pploc[23].append()          
+  apic[24]     pploc[24].append()         
+  apic[25]     pploc[25].append()         
+  apic[26]      pploc[26].append()          
+  apic[27]      pploc[27].append()         
+  apic[28]    pploc[28].append()         
+  apic[29]    pploc[29].append()         
+  apic[30]    pploc[30].append()        
+  apic[31]    pploc[31].append()        
+  apic[32]       pploc[32].append()     
+  apic[33]       pploc[33].append()     
+  apic[34]     pploc[34].append()      
+  apic[35]       pploc[35].append()    
+  apic[36]   pploc[36].append()      
+  apic[37]      pploc[37].append()   
+  apic[38]       pploc[38].append()     
+  apic[39]         pploc[39].append()     
+  apic[40]        pploc[40].append()   
+  apic[41]        pploc[41].append()    
+  apic[42]        pploc[42].append()    
+  apic[43]           pploc[43].append()  
+  apic[44]             pploc[44].append()
+  apic[45]        pploc[45].append()      
+  apic[46]         pploc[46].append()    
+  apic[47]        pploc[47].append()     
+  apic[48] pploc[48].append()            
+  apic[49] pploc[49].append()           
+  apic[50] pploc[50].append()           
+  apic[51] pploc[51].append()                
+  apic[52] pploc[52].append()             
+  apic[53]  pploc[53].append()             
+  apic[54]    pploc[54].append()         
+  apic[55]    pploc[55].append()          
+  apic[56]   pploc[56].append()        
+  apic[57]    pploc[57].append()         
+  apic[58]      pploc[58].append()         
+  apic[59]  pploc[59].append()           
+  apic[60]    pploc[60].append()        
+  apic[61]       pploc[61].append()         
+  apic[62]    pploc[62].append()         
+  apic[63]          pploc[63].append()    
+  apic[64]   pploc[64].append()           
+  apic[65]  pploc[65].append()          
+  apic[66]    pploc[66].append()        
+  apic[67]  pploc[67].append()          
+  apic[68]   pploc[68].append()         
+  apic[69]    pploc[69].append()      
+  apic[70]    pploc[70].append()       
+  apic[71]   pploc[71].append()      
+  apic[72] pploc[72].append()          
+  apic[73]    pploc[73].append()    
+  apic[74]     pploc[74].append()   
+  apic[75]       pploc[75].append()
+  apic[76]       pploc[76].append()
+  apic[77]       pploc[77].append()
+  apic[78]        pploc[78].append()
+  apic[79]        pploc[79].append()
+  apic[80]       pploc[80].append() 
+  apic[81]    pploc[81].append()   
+  apic[82]    pploc[82].append()   
+  apic[83]     pploc[83].append()         
+  apic[84]      pploc[84].append()        
+  apic[85]   pploc[85].append()          
+  apic[86]     pploc[86].append()       
+  apic[87]   pploc[87].append()           
+  apic[88]     pploc[88].append()            
+  apic[89]   pploc[89].append()            
+  apic[90]   pploc[90].append()            
+  apic[91]    pploc[91].append()         
+  apic[92]   pploc[92].append()           
+  apic[93]   pploc[93].append()         
+  apic[94]   pploc[94].append()         
+  apic[95]       pploc[95].append()        
+  apic[96]       pploc[96].append()      
+  apic[97]          pploc[97].append()   
+  apic[98]        pploc[98].append()        
+  apic[99]     pploc[99].append()          
+  apic[100]      pploc[100].append()         
+  apic[101]     pploc[101].append()         
+  apic[102]         pploc[102].append()     
+  apic[103]        pploc[103].append()     
+  apic[104]         pploc[104].append()
+  apic[105]      pploc[105].append()         
+  apic[106]     pploc[106].append()         
+  apic[107]         pploc[107].append()     
+  apic[108]        pploc[108].append()     
+  apic[109]         pploc[109].append() 
+  apic[110]      pploc[110].append()         
+  apic[111]     pploc[111].append()          
+                      
+*/
+
+
+
+dend[55]	pploc[1].append()
+
+
+//dend[29]	pploc[1].append()
+//dend[18]	pploc[1].append()
+//dend[26]	pploc[1].append()
+//dend[24]	pploc[1].append()
+//dend[46]	pploc[1].append()
+
+
+
+
+// insert pulse packet synapses and init onset time
+
+proc random_nonrep_dend() {local i
+	dummy = p.normal(0, sigmasyn^2)
+	// draw random numbers without redrawing same ones
+	randsecdend = new Vector()
+	dummy = r.discunif(0,numbranches-1)
+	for i=1,numbranches {
+	  exists = 0
+	  while (exists>-1) {
+	    dummy = r.repick()
+	    exists = randsecdend.indwhere("==",dummy)
+	  }
+	  randsecdend.append(dummy)
+	}
+}
+
+r = new Random()
+p = new Random()
+
+
+proc random_nonrep_syn() {
+	dummy = p.normal(0, sigmasyn^2)
+	// draw random numbers without redrawing same ones
+	randsecsyn = new Vector()
+	dummy = r.discunif(0,maxsyn-1)
+	for k=1,nsyn {
+	  exists = 0
+	  while (exists>-1) {
+	    dummy = r.repick()
+	    exists = randsecsyn.indwhere("==",dummy)
+	  }
+	  randsecsyn.append(dummy)
+	}	
+}
+
+
+
+proc init_pp() {local i
+	dummy = int(r.uniform(0.1,0.9)) // not 0 or 1, see below
+	dummy = p.normal(0, sigmasyn^2)
+	objref syn[500], psyn[500]
+	m=0	
+	numbranches=1
+	b=int(nsyn/numbranches)
+	dsyn=1/(clus_factor*nsyn)
+	synloc=0
+	//soma distance ()
+	//forsec pploc [1] { print distance (0.1)}
+
+
+
+	for i=0, N{
+		synloc+=dsyn
+		forsec pploc[1] {
+			synloc+=dsyn
+			syn[i] = new syn_g_duo(0.1+synloc)
+			syn[i].onset=1200
+			syn[i].gmax=gmax
+			syn[i].ntar= nmda2ampa
+
+
+
+
+			//Second pulse
+			//psyn = new syn_g_duo(0.8)
+			//psyn.onset=1220
+			//psyn.gmax=gmax
+			//psyn.ntar= nmda2ampa
+		
+		}//forsec
+	//print synloc		
+	}//nsyn for loop
+
+}//initpp
+
+
+// insert background activity synapses
+proc update_synwieght() {
+
+		for i=0, nsyn{
+			forsec pploc[1] {
+				syn[i].gmax= gmax
+			}
+		}
+}
+
+proc update_synnumber() {
+		nsyn=N
+}
+
+
+proc make_synback() {
+	// insert one synapse in each section
+	ii = 0
+	forsec dendritic_only {
+		esyn[ii] = new syn_g(0.2)
+		esyn[ii].gmax = egmax
+		esyn[ii].tau0=2
+		esyn[ii].tau1=5	
+		isyn[ii] = new syn_gi(0.2)
+		isyn[ii].gmax = igmax
+		isyn[ii].tau0=5
+		isyn[ii].tau1=6
+		ii = ii+1
+	}
+	maxesyn = ii
+	maxisyn = ii
+}
+
+proc init_esyn() {local i
+	for i=1,maxesyn {
+	esyn[i-1].onset=1020 + ep.repick()
+	}
+}
+
+proc init_isyn() {local i
+	for i=1,maxisyn {
+	isyn[i-1].onset=1020 + ep.repick()
+	}
+}
+
+xpanel("Parameters")
+xvalue("synaptic Weight","gmax",1,"update_synwieght()",1,1)
+xvalue("Number","N",1,"update_synnumber()",1,1)
+xpanel()
+
+objref stfunc,shape
+shape=new Shape(0)
+shape.view(-792.112, -154.611, 1363.32, 1185.94, 5, 340, 300, 260)
+shape.show(0)
+proc make_shape_plot(){//DRAWS THE POINTS ON THE CELL
+	shape.point_mark_remove()
+
+	//for i=0, maxesyn-1{
+		//shape.point_mark(esyn[i], 3, 4, 5)	
+	//}
+	//for i=0, maxisyn-1{
+		//shape.point_mark(isyn[i], 1, 4, 5)	
+	//}
+	for i=0,nsyn-1{
+		shape.point_mark(syn[i], 2, 4, 5)	
+	}
+	access soma
+}///END SHAPE
+
